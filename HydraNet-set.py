@@ -392,17 +392,17 @@ class TennisDataset(Dataset):
             self.labels[match_id] = torch.FloatTensor((set_victors[1:] == 1).astype(float))  # [num_games -1]
 
             self.matches[match_id] = group_sorted[['p1_serve', 'p1_double_fault', 'p1_break_pt_missed', 'p1_ace',
-                                                   'p1_serve_speed', 'p1_serve_depth',
-                                                   'p1_break_pt_won', 'p1_return_depth',
-                                                   'p1_distance_run',
-                                                   'p1_unf_err', 'p1_net_pt', 'p1_net_pt_won', 'p1_winner',
-                                                   'p1_points_diff', 'p1_game_diff', 'p1_set_diff',
-                                                   'p2_serve', 'p2_double_fault', 'p2_break_pt_missed', 'p2_ace',
-                                                   'p2_serve_speed', 'p2_serve_depth',
-                                                   'p2_break_pt_won', 'p2_return_depth',
-                                                   'p2_unf_err', 'p2_net_pt', 'p2_net_pt_won', 'p2_winner',
-                                                   'p2_points_diff', 'p2_game_diff', 'p2_set_diff',
-                                                   'p2_distance_run']].values
+                       'p1_serve_speed', 'p1_serve_depth',
+                       'p1_break_pt_won', 'p1_return_depth',
+                       'p1_distance_run',
+                       'p1_unf_err', 'p1_net_pt', 'p1_net_pt_won', 'p1_winner',
+                       'p1_points_diff', 'p1_game_diff', 'p1_set_diff',
+                       'p2_serve', 'p2_double_fault', 'p2_break_pt_missed', 'p2_ace',
+                       'p2_serve_speed', 'p2_serve_depth',
+                       'p2_break_pt_won', 'p2_return_depth',
+                       'p2_unf_err', 'p2_net_pt', 'p2_net_pt_won', 'p2_winner',
+                       'p2_points_diff', 'p2_game_diff', 'p2_set_diff',
+                       'p2_distance_run']].values
 
             self.match_ids.append(match_id)
 
@@ -727,13 +727,15 @@ def main():
     feature_columns = ['p1_serve', 'p1_double_fault', 'p1_break_pt_missed', 'p1_ace',
                        'p1_serve_speed', 'p1_serve_depth',
                        'p1_break_pt_won', 'p1_return_depth',
+                       'p1_distance_run',
                        'p1_unf_err', 'p1_net_pt', 'p1_net_pt_won', 'p1_winner',
                        'p1_points_diff', 'p1_game_diff', 'p1_set_diff',
                        'p2_serve', 'p2_double_fault', 'p2_break_pt_missed', 'p2_ace',
                        'p2_serve_speed', 'p2_serve_depth',
                        'p2_break_pt_won', 'p2_return_depth',
                        'p2_unf_err', 'p2_net_pt', 'p2_net_pt_won', 'p2_winner',
-                       'p2_points_diff', 'p2_game_diff', 'p2_set_diff']
+                       'p2_points_diff', 'p2_game_diff', 'p2_set_diff',
+                       'p2_distance_run']
     # # Handle zero std to prevent division by zero
     for col in feature_columns:
         if df[col].std() == 0:
@@ -887,3 +889,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
