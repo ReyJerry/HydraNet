@@ -1,19 +1,22 @@
+import sys
+import os
+import math
+import warnings
 import chardet
+import pandas as pd
+import numpy as np
+from tqdm import tqdm
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import pandas as pd
-import numpy as np
-import math
-from sklearn.model_selection import KFold
-from torch.utils.data import Dataset, DataLoader
-from Hydra import Hydra
-import os
-from tqdm import tqdm
-from sklearn.metrics import roc_auc_score, average_precision_score, f1_score, recall_score, precision_score
 import torch.nn.functional as F
-import sys
-import warnings
+from torch.utils.data import Dataset, DataLoader
+from sklearn.model_selection import KFold
+from sklearn.metrics import roc_auc_score, average_precision_score, f1_score, recall_score, precision_score
+
+# Assuming Hydra is a local module you have
+from Hydra import Hydra
 
 warnings.filterwarnings("ignore")
 
@@ -57,7 +60,7 @@ class VersusLearning(nn.Module):
         self.margin = margin
         self.cosine_similarity = nn.CosineSimilarity(dim=-1)
 
-    def forward(self, p1,  p2):
+    def forward(self, p1, p2):
         """
         p1: [B, D]
         p2: [B, D]
@@ -68,6 +71,7 @@ class VersusLearning(nn.Module):
         opponent_distance = self.cosine_similarity(p1, p2)  # [B]
         ver_loss = torch.mean(F.relu(self.margin + opponent_distance))
         return ver_loss
+
 
 class CAAM(nn.Module):
     def __init__(self, input_dim, num_heads=8):
@@ -100,6 +104,7 @@ class CAAM(nn.Module):
         p2_fused = torch.sum(p2_attended * weights.view(1, 4, 1), dim=1, keepdim=True)  # [B, 1, D]
 
         return p1_fused, p2_fused  # [B, 1, D], [B, 1, D]
+
 
 # HydraNet
 class HydraNet(nn.Module):
@@ -170,7 +175,7 @@ class HydraNet(nn.Module):
         self.match_memory = {}  # {match_id: {'p1': momentum_vector, 'p2': momentum_vector}}
 
     def forward(self, batch_dict):
-        features = batch_dict['features']  # [B, L, 32]  # p1 and p2 concatenated
+        features = batch_dict['features']  # [B, L, 32] # p1 and p2 concatenated
 
         labels = batch_dict.get('label', None)  # [B, L]
         match_ids = batch_dict['match_id']  # [B]
@@ -304,7 +309,7 @@ class HydraNet(nn.Module):
                         feature_p1_t = features_p1_list[t]  # [1, 4, 64]
                         feature_p2_t = features_p2_list[t]  # [1, 4, 64]
 
-                        attended_p1, attended_p2 = self.CAAM(feature_p1_t,feature_p2_t)  # [1, 1, D], [1, 1, D]
+                        attended_p1, attended_p2 = self.CAAM(feature_p1_t, feature_p2_t)  # [1, 1, D], [1, 1, D]
 
                         final_p1 = attended_p1.squeeze(1)  # [1, D]
                         final_p2 = attended_p2.squeeze(1)  # [1, D]
@@ -351,32 +356,26 @@ class TennisDataset(Dataset):
 
             group_sorted['ball_order'] = group_sorted.groupby(['set_no', 'game_no']).cumcount() + 1
 
-            raw_features = group_sorted[['p1_serve', 'p1_double_fault', 'p1_break_pt_missed', 'p1_ace',
-                        'p1_serve_speed', 'p1_serve_depth',
-                        'p1_break_pt_won', 'p1_return_depth',
-                        'p1_distance_run',
-                        'p1_unf_err', 'p1_net_pt', 'p1_net_pt_won', 'p1_winner',
-                        'p1_points_diff', 'p1_game_diff', 'p1_set_diff',
-                        'p2_serve', 'p2_double_fault', 'p2_break_pt_missed', 'p2_ace',
-                        'p2_serve_speed', 'p2_serve_depth',
-                        'p2_break_pt_won', 'p2_return_depth',
-                        'p2_unf_err', 'p2_net_pt', 'p2_net_pt_won', 'p2_winner',
-                        'p2_points_diff', 'p2_game_diff', 'p2_set_diff',
-                        'p2_distance_run']].values
+            self.matches[match_id] = group_sorted[['p1_serve', 'p1_double_fault', 'p1_break_pt_missed', 'p1_ace',
+                                                   'p1_serve_speed', 'p1_serve_depth',
+                                                   'p1_break_pt_won', 'p1_return_depth',
+                                                   'p1_distance_run',
+                                                   'p1_unf_err', 'p1_net_pt', 'p1_net_pt_won', 'p1_winner',
+                                                   'p1_points_diff', 'p1_game_diff', 'p1_set_diff',
+                                                   'p2_serve', 'p2_double_fault', 'p2_break_pt_missed', 'p2_ace',
+                                                   'p2_serve_speed', 'p2_serve_depth',
+                                                   'p2_break_pt_won', 'p2_return_depth',
+                                                   'p2_unf_err', 'p2_net_pt', 'p2_net_pt_won', 'p2_winner',
+                                                   'p2_points_diff', 'p2_game_diff', 'p2_set_diff',
+                                                   'p2_distance_run']].values
 
-            raw_labels = group_sorted['Y'].values
-            raw_sets = group_sorted['set_no'].values
-            raw_games = group_sorted['game_no'].values
+            self.labels[match_id] = group_sorted['Y'].values
 
-            if len(raw_features) > 1:
-                self.matches[match_id] = raw_features[:-1]
-                
-                self.labels[match_id] = raw_labels[1:]
-                
-                self.sets[match_id] = raw_sets[:-1]
-                self.games[match_id] = raw_games[:-1]
+            self.match_ids.append(match_id)
 
-                self.match_ids.append(match_id)
+            self.sets[match_id] = group_sorted['set_no'].values
+
+            self.games[match_id] = group_sorted['game_no'].values
 
         print(f"Total matches stored: {len(self.match_ids)}")
 
@@ -391,17 +390,20 @@ class TennisDataset(Dataset):
         match_id = self.match_ids[idx]
 
         sequence = torch.FloatTensor(self.matches[match_id])
+
         label = torch.FloatTensor(self.labels[match_id])
+
         match_id_idx = torch.LongTensor([self.match_to_idx[match_id]])
+
         set_num = torch.LongTensor(self.sets[match_id])
         game_num = torch.LongTensor(self.games[match_id])
 
         return {
-            'features': sequence,  # [L-1, 32]
-            'label': label,        # [L-1]
-            'match_id': match_id_idx,
-            'set': set_num,        # [L-1]
-            'game': game_num       # [L-1]
+            'features': sequence,  # [L, 32]
+            'label': label,  # [L]
+            'match_id': match_id_idx,  # [1]
+            'set': set_num,  # [L]
+            'game': game_num  # [L]
         }
 
     @property
@@ -678,7 +680,8 @@ def main():
         train_match_ids = unique_match_ids[train_match_idx]
         val_match_ids = unique_match_ids[val_match_idx]
 
-        print(f"Number of training matches: {len(train_match_ids)}, Number of validation matches: {len(val_match_ids)}")
+        print(
+            f"Number of training matches: {len(train_match_ids)}, Number of validation matches: {len(val_match_ids)}")
 
         # Split data
         train_data = df[df['match_id'].isin(train_match_ids)]
@@ -798,4 +801,3 @@ if __name__ == "__main__":
     finally:
         sys.stdout.log.close()
         sys.stdout = original_stdout
-
