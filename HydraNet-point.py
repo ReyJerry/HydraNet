@@ -346,32 +346,37 @@ class TennisDataset(Dataset):
         total_matches = len(grouped)
         print(f"Total matches in dataset: {total_matches}")
 
-
         for match_id, group in grouped:
             group_sorted = group.sort_values(['set_no', 'game_no']).reset_index(drop=True)
 
             group_sorted['ball_order'] = group_sorted.groupby(['set_no', 'game_no']).cumcount() + 1
 
-            self.matches[match_id] = group_sorted[['p1_serve', 'p1_double_fault', 'p1_break_pt_missed', 'p1_ace',
-                       'p1_serve_speed', 'p1_serve_depth',
-                       'p1_break_pt_won', 'p1_return_depth',
-                       'p1_distance_run',
-                       'p1_unf_err', 'p1_net_pt', 'p1_net_pt_won', 'p1_winner',
-                       'p1_points_diff', 'p1_game_diff', 'p1_set_diff',
-                       'p2_serve', 'p2_double_fault', 'p2_break_pt_missed', 'p2_ace',
-                       'p2_serve_speed', 'p2_serve_depth',
-                       'p2_break_pt_won', 'p2_return_depth',
-                       'p2_unf_err', 'p2_net_pt', 'p2_net_pt_won', 'p2_winner',
-                       'p2_points_diff', 'p2_game_diff', 'p2_set_diff',
-                       'p2_distance_run']].values
+            raw_features = group_sorted[['p1_serve', 'p1_double_fault', 'p1_break_pt_missed', 'p1_ace',
+                        'p1_serve_speed', 'p1_serve_depth',
+                        'p1_break_pt_won', 'p1_return_depth',
+                        'p1_distance_run',
+                        'p1_unf_err', 'p1_net_pt', 'p1_net_pt_won', 'p1_winner',
+                        'p1_points_diff', 'p1_game_diff', 'p1_set_diff',
+                        'p2_serve', 'p2_double_fault', 'p2_break_pt_missed', 'p2_ace',
+                        'p2_serve_speed', 'p2_serve_depth',
+                        'p2_break_pt_won', 'p2_return_depth',
+                        'p2_unf_err', 'p2_net_pt', 'p2_net_pt_won', 'p2_winner',
+                        'p2_points_diff', 'p2_game_diff', 'p2_set_diff',
+                        'p2_distance_run']].values
 
-            self.labels[match_id] = group_sorted['Y'].values
+            raw_labels = group_sorted['Y'].values
+            raw_sets = group_sorted['set_no'].values
+            raw_games = group_sorted['game_no'].values
 
-            self.match_ids.append(match_id)
+            if len(raw_features) > 1:
+                self.matches[match_id] = raw_features[:-1]
+                
+                self.labels[match_id] = raw_labels[1:]
+                
+                self.sets[match_id] = raw_sets[:-1]
+                self.games[match_id] = raw_games[:-1]
 
-            self.sets[match_id] = group_sorted['set_no'].values
-
-            self.games[match_id] = group_sorted['game_no'].values
+                self.match_ids.append(match_id)
 
         print(f"Total matches stored: {len(self.match_ids)}")
 
@@ -386,20 +391,17 @@ class TennisDataset(Dataset):
         match_id = self.match_ids[idx]
 
         sequence = torch.FloatTensor(self.matches[match_id])
-
         label = torch.FloatTensor(self.labels[match_id])
-
         match_id_idx = torch.LongTensor([self.match_to_idx[match_id]])
-
         set_num = torch.LongTensor(self.sets[match_id])
         game_num = torch.LongTensor(self.games[match_id])
 
         return {
-            'features': sequence,  # [L, 32]
-            'label': label,  # [L]
-            'match_id': match_id_idx,  # [1]
-            'set': set_num,  # [L]
-            'game': game_num  # [L]
+            'features': sequence,  # [L-1, 32]
+            'label': label,        # [L-1]
+            'match_id': match_id_idx,
+            'set': set_num,        # [L-1]
+            'game': game_num       # [L-1]
         }
 
     @property
@@ -796,3 +798,4 @@ if __name__ == "__main__":
     finally:
         sys.stdout.log.close()
         sys.stdout = original_stdout
+
